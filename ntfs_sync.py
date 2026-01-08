@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import os
 import shutil
 import stat
@@ -6,12 +5,39 @@ import logging
 from pathlib import Path
 import time
 
-source = Path("/media/mm/DEXP C100/User")
-backup = Path("/media/mm/Backup/User")
 
 logging.basicConfig(filename=f'logs/sync-{int(time.time())}.log', 
                    level=logging.INFO, format='%(asctime)s %(message)s')
 
+
+class Sync:
+    def __init__(self, source: str, backup: str):
+        self.source = Path(source)
+        self.backup = Path(backup)
+
+
+    def clear_deleted(self, dry=True):
+        """
+        Clearing the backup of items no longer found in the source
+        """
+        for root, dirs, files in self.backup.walk():
+            if not root.exists():
+                continue
+            rel_path = root.relative_to(self.backup)
+            src_equiv = self.source / rel_path
+            if not src_equiv.exists():
+                logging.info(f"Deleting dir tree: {root}")
+                shutil.rmtree(root) if not dry else None
+            else:
+                for file in files:
+                    src_equiv = self.source / rel_path / file
+                    if not src_equiv.exists():
+                        logging.info(f"Deleting file: {root / file}")
+                        os.remove(root / file) if not dry else None
+            time.sleep(0.01)  # Yield to prevent I/O starvation
+
+
+# All below will be refactored later
 def safe_copy(src, dst):
     try:
         if src.is_file():
@@ -44,13 +70,7 @@ def sync_level(depth=0, max_depth=0, dry_run=True):
             
         time.sleep(0.01)  # Yield to prevent I/O starvation
     
-    # Delete extras in backup
-    for root, dirs, files in os.walk(backup):
-        rel_path = Path(root).relative_to(backup)
-        src_equiv = source / rel_path
-        if not src_equiv.exists():
-            shutil.rmtree(root)
-            logging.info(f"Deleted: {root}")
+
 
 if __name__ == "__main__":
     # print("DRY RUN MODE - remove dry_run=True for real sync")
