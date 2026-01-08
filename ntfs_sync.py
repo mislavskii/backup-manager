@@ -9,27 +9,28 @@ import time
 source = Path("/media/mm/DEXP C100/User")
 backup = Path("/media/mm/Backup/User")
 
-logging.basicConfig(filename=f'/tmp/sync-{int(time.time())}.log', 
+logging.basicConfig(filename=f'logs/sync-{int(time.time())}.log', 
                    level=logging.INFO, format='%(asctime)s %(message)s')
 
 def safe_copy(src, dst):
     try:
         if src.is_file():
+            logging.info(f"Copying: {src} -> {dst}")
             shutil.copy2(src, dst, follow_symlinks=False)
-            logging.info(f"Copied: {src} -> {dst}")
         elif src.is_dir():
             dst.mkdir(parents=True, exist_ok=True)
     except Exception as e:
         logging.error(f"Failed {src}: {e}")
 
-def sync_level(depth=0, max_depth=3):
+def sync_level(depth=0, max_depth=0, dry_run=True):
     """Batch sync by directory depth to avoid NTFS recursion freeze"""
     count = 0
     for root, dirs, files in os.walk(source, topdown=True):
+        root = Path(root)
         rel_path = root.relative_to(source)
         depth_now = len(rel_path.parts)
         
-        if depth_now > max_depth:
+        if depth_now > max_depth and max_depth > 0:
             dirs[:] = []  # Prune deeper recursion
             continue
             
@@ -45,7 +46,7 @@ def sync_level(depth=0, max_depth=3):
     
     # Delete extras in backup
     for root, dirs, files in os.walk(backup):
-        rel_path = root.relative_to(backup)
+        rel_path = Path(root).relative_to(backup)
         src_equiv = source / rel_path
         if not src_equiv.exists():
             shutil.rmtree(root)
