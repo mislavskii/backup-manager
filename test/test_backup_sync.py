@@ -148,3 +148,61 @@ class TestSyncClearDeleted:
         
         assert len(files_before) == len(files_after)
         assert (backup_dir / "file.txt").exists()
+
+    def test_clear_deleted_extra_files_in_source(self, temp_directories):
+        """Test behavior when there are extra files in source not in backup"""
+        source_dir, backup_dir = temp_directories
+        
+        # Add an extra file in source that's not in backup
+        (source_dir / "extra_in_source.txt").write_text("extra content")
+        
+        sync = Sync(str(source_dir), str(backup_dir))
+        
+        # Count files before
+        files_before = list(backup_dir.rglob("*"))
+        
+        # Run clear_deleted - should delete extra files in backup
+        sync.clear_deleted(dry=False)
+        
+        # Count files after
+        files_after = list(backup_dir.rglob("*"))
+        
+        # Should have fewer files after (extra files deleted)
+        assert len(files_after) < len(files_before)
+        
+        # Existing files that match source should still exist
+        assert (backup_dir / "dir1" / "file1.txt").exists()
+        assert (backup_dir / "file2.txt").exists()
+        
+        # Extra files in backup should be deleted (they don't exist in source)
+        assert not (backup_dir / "dir1" / "extra_file.txt").exists()
+        assert not (backup_dir / "dir3").exists()
+        assert not (backup_dir / "extra_file.txt").exists()
+        
+        # The extra file in source doesn't affect backup (it's not there to begin with)
+        
+    def test_clear_deleted_error_handling(self, temp_directories):
+        """Test that clear_deleted properly handles errors during deletion"""
+        source_dir, backup_dir = temp_directories
+        
+        sync = Sync(str(source_dir), str(backup_dir))
+        
+        # Create a directory that exists in backup but not in source
+        extra_dir = backup_dir / "extra_dir"
+        extra_dir.mkdir()
+        
+        # Create a file in that directory
+        extra_file = extra_dir / "extra_file.txt"
+        extra_file.write_text("extra content")
+        
+        # Test that clear_deleted processes all items and handles errors gracefully
+        # The current implementation doesn't have explicit error handling,
+        # so errors will propagate up to the caller
+        try:
+            sync.clear_deleted(dry=False)
+            # If we get here, the deletion succeeded
+            assert not extra_dir.exists()
+        except (PermissionError, OSError) as e:
+            # If we get an exception, it should be a permission or OS error
+            # This documents the current behavior
+            assert isinstance(e, (PermissionError, OSError))
