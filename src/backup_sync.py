@@ -17,6 +17,7 @@ class Sync:
 
 
     def clear_deleted(self, dry=True):
+        # TODO: error handling
         """
         Clearing the backup of items no longer found in the source
         """
