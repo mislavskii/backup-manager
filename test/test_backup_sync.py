@@ -84,7 +84,7 @@ class TestSyncClearDeleted:
         source_dir, backup_dir = temp_directories
         sync = Sync(str(source_dir), str(backup_dir))
         
-        sync.clear_deleted(dry=False)
+        sync.clear_deleted(dry=True)  # even on dry run
         
         # Check that logging was called for deleted items
         log_calls = [call[0][0] for call in mock_logging.call_args_list]
