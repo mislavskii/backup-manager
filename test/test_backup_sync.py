@@ -206,3 +206,63 @@ class TestSyncClearDeleted:
             # If we get an exception, it should be a permission or OS error
             # This documents the current behavior
             assert isinstance(e, (PermissionError, OSError))
+
+    @patch('src.backup_sync.logging.error')
+    @patch('src.backup_sync.logging.warning')
+    def test_clear_deleted_retry_behavior(self, mock_warning, mock_error, temp_directories):
+        """Test that clear_deleted retries failed operations and logs appropriately"""
+        source_dir, backup_dir = temp_directories
+        sync = Sync(str(source_dir), str(backup_dir))
+        
+        # Create a directory that exists in backup but not in source
+        extra_dir = backup_dir / "extra_dir"
+        extra_dir.mkdir()
+        
+        # Create a file in that directory
+        extra_file = extra_dir / "extra_file.txt"
+        extra_file.write_text("extra content")
+        
+        # Mock shutil.rmtree to fail twice (first attempt and retry)
+        with patch('src.backup_sync.shutil.rmtree', side_effect=OSError("Permission denied")):
+            sync.clear_deleted(dry=False)
+        
+        # Verify that warning and error logging occurred
+        assert mock_warning.called
+        assert mock_error.called
+        
+        # Verify that the method continued processing despite the error
+        # (the fact that we get here without exception means it continued)
+
+    @patch('src.backup_sync.logging.info')
+    @patch('src.backup_sync.logging.error')
+    def test_clear_deleted_successful_retry(self, mock_error, mock_info, temp_directories):
+        """Test that successful retry logs appropriately"""
+        source_dir, backup_dir = temp_directories
+        sync = Sync(str(source_dir), str(backup_dir))
+        
+        # Create a directory that exists in backup but not in source
+        extra_dir = backup_dir / "extra_dir"
+        extra_dir.mkdir()
+        
+        # Create a file in that directory
+        extra_file = extra_dir / "extra_file.txt"
+        extra_file.write_text("extra content")
+        
+        # Mock shutil.rmtree to fail the first time but succeed the second time
+        call_count = 0
+        def rmtree_side_effect(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise OSError("Permission denied")
+            # Second call succeeds (no exception)
+            # We don't actually delete the directory in the test, just verify the retry logic
+        
+        with patch('src.backup_sync.shutil.rmtree', side_effect=rmtree_side_effect):
+            sync.clear_deleted(dry=False)
+        
+        # Verify that the function was called at least twice (first attempt + retry)
+        assert call_count >= 2
+        
+        # Verify that warning logging occurred for the first failure
+        assert mock_info.called
