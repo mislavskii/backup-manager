@@ -16,13 +16,15 @@ class Sync:
         self.source = Path(source)
         self.backup = Path(backup)
 
-    @progress_tracker(desc="Clearing deleted files", unit="items")
+    @progress_tracker(desc="Clearing deleted files", unit="dirs")
     def clear_deleted(self, dry=True, pbar=None):
         """
         Clearing the backup of items no longer found in the source
         """
         for root, dirs, files in self.backup.walk():
             if not root.exists():
+                if pbar:
+                    pbar.update(1)
                 continue
             rel_path = root.relative_to(self.backup)
             src_equiv = self.source / rel_path
@@ -30,8 +32,6 @@ class Sync:
                 logging.info(f"Deleting dir tree: {root}")
                 if not dry:
                     remove_directory(root)
-                if pbar:
-                    pbar.update(1)
             else:
                 for file in files:
                     src_equiv = self.source / rel_path / file
@@ -39,21 +39,29 @@ class Sync:
                         logging.info(f"Deleting file: {root / file}")
                         if not dry:
                             remove_file(root / file)
-                    if pbar:
-                        pbar.update(1)
+            if pbar:
+                pbar.update(1)
             time.sleep(0.01)  # Yield to prevent I/O starvation
 
 
+    def safe_copy(self, dry=True):
+        """Copies all files recursively from source to backup with no metadata"""
+        for root, dirs, files in self.source.walk():
+            rel_path = root.relative_to(self.source)
+            backup_equiv = self.backup / rel_path
+            logging.info(f"Making dir: {root}")
+            if not dry:
+                backup_equiv.mkdir(parents=True, exist_ok=True)
+            for file in files:
+                if not dry:
+                    shutil.copy(root / file, backup_equiv / file)
+            time.sleep(0.01)  # Yield to prevent I/O starvation
+
+    
+
+
 # All below will be refactored later
-def safe_copy(src, dst):
-    try:
-        if src.is_file():
-            logging.info(f"Copying: {src} -> {dst}")
-            shutil.copy2(src, dst, follow_symlinks=False)
-        elif src.is_dir():
-            dst.mkdir(parents=True, exist_ok=True)
-    except Exception as e:
-        logging.error(f"Failed {src}: {e}")
+
 
 def sync_level(depth=0, max_depth=0, dry_run=True):
     """Batch sync by directory depth to avoid NTFS recursion freeze"""
@@ -80,6 +88,4 @@ def sync_level(depth=0, max_depth=0, dry_run=True):
 
 
 if __name__ == "__main__":
-    # print("DRY RUN MODE - remove dry_run=True for real sync")
-    sync_level(max_depth=2)  # Start shallow
-    print("Check /tmp/sync-*.log then increase max_depth")
+    sync = Sync('sabaka', 'koshka')  

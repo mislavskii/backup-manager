@@ -40,9 +40,9 @@ def progress_tracker(desc="Processing", unit="items"):
             # Try to get total count from function's first argument if it's a Sync instance
             total = None
             if args and hasattr(args[0], 'backup') and hasattr(args[0], 'source'):
-                # Estimate total items in backup directory
+                # Estimate total directories in backup directory
                 try:
-                    total = sum([len(files) for _, _, files in args[0].backup.walk()])
+                    total = sum(1 for _ in args[0].backup.walk())
                 except:
                     pass
             
