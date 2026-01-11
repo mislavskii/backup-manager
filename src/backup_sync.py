@@ -4,51 +4,17 @@ import stat
 import logging
 from pathlib import Path
 import time
-import functools
+from src.utils import remove_directory, remove_file
 
 
 logging.basicConfig(filename=f'logs/sync-{int(time.time())}.log', 
                    level=logging.INFO, format='%(asctime)s %(message)s')
 
 
-def retry_on_failure(max_retries=1, delay=0.1):
-    """
-    Decorator to retry a function on failure with logging
-    """
-    def decorator(func):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            last_exception = Exception("Unknown error")
-            for attempt in range(max_retries + 1):
-                try:
-                    return func(*args, **kwargs)
-                except Exception as e:
-                    last_exception = e
-                    if attempt < max_retries:
-                        logging.warning(f"Failed to execute {func.__name__} on attempt {attempt + 1}: {e}")
-                        time.sleep(delay)
-                    else:
-                        logging.error(f"Failed to execute {func.__name__} after {max_retries + 1} attempts: {e}")
-                        # Instead of raising, we just return None to skip to next item
-                        return None
-        return wrapper
-    return decorator
-
-
 class Sync:
     def __init__(self, source: str, backup: str):
         self.source = Path(source)
         self.backup = Path(backup)
-
-    @retry_on_failure()
-    def _remove_directory(self, path):
-        """Remove a directory with retry logic"""
-        shutil.rmtree(path)
-
-    @retry_on_failure()
-    def _remove_file(self, path):
-        """Remove a file with retry logic"""
-        os.remove(path)
 
     def clear_deleted(self, dry=True):
         # TODO: error handling
@@ -63,14 +29,14 @@ class Sync:
             if not src_equiv.exists():
                 logging.info(f"Deleting dir tree: {root}")
                 if not dry:
-                    self._remove_directory(root)
+                    remove_directory(root)
             else:
                 for file in files:
                     src_equiv = self.source / rel_path / file
                     if not src_equiv.exists():
                         logging.info(f"Deleting file: {root / file}")
                         if not dry:
-                            self._remove_file(root / file)
+                            remove_file(root / file)
             time.sleep(0.01)  # Yield to prevent I/O starvation
 
 
