@@ -4,7 +4,7 @@ import stat
 import logging
 from pathlib import Path
 import time
-from src.utils import remove_directory, remove_file
+from src.utils import remove_directory, remove_file, progress_tracker
 
 
 logging.basicConfig(filename=f'logs/sync-{int(time.time())}.log', 
@@ -16,8 +16,8 @@ class Sync:
         self.source = Path(source)
         self.backup = Path(backup)
 
-    def clear_deleted(self, dry=True):
-        # TODO: error handling
+    @progress_tracker(desc="Clearing deleted files", unit="items")
+    def clear_deleted(self, dry=True, pbar=None):
         """
         Clearing the backup of items no longer found in the source
         """
@@ -30,6 +30,8 @@ class Sync:
                 logging.info(f"Deleting dir tree: {root}")
                 if not dry:
                     remove_directory(root)
+                if pbar:
+                    pbar.update(1)
             else:
                 for file in files:
                     src_equiv = self.source / rel_path / file
@@ -37,6 +39,8 @@ class Sync:
                         logging.info(f"Deleting file: {root / file}")
                         if not dry:
                             remove_file(root / file)
+                    if pbar:
+                        pbar.update(1)
             time.sleep(0.01)  # Yield to prevent I/O starvation
 
 
