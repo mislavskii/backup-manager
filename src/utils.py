@@ -30,7 +30,7 @@ def retry_on_failure(max_retries=1, delay=0.1):
     return decorator
 
 
-def progress_tracker(desc="Processing", unit="items"):
+def progress_tracker(desc="Processing", unit="items", target="source"):
     """
     Decorator to add progress tracking to functions that process items
     """
@@ -42,34 +42,7 @@ def progress_tracker(desc="Processing", unit="items"):
             if args and hasattr(args[0], 'backup') and hasattr(args[0], 'source'):
                 # Estimate total directories in backup directory
                 try:
-                    total = sum(1 for _ in args[0].backup.walk())
-                except:
-                    pass
-            
-            pbar = tqdm(total=total, desc=desc, unit=unit)
-            kwargs['pbar'] = pbar
-            try:
-                result = func(*args, **kwargs)
-            finally:
-                pbar.close()
-            return result
-        return wrapper
-    return decorator
-
-
-def source_progress_tracker(desc="Processing", unit="items"):
-    """
-    Decorator to add progress tracking to functions that process items from source
-    """
-    def decorator(func):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            # Try to get total count from function's first argument if it's a Sync instance
-            total = None
-            if args and hasattr(args[0], 'source') and hasattr(args[0], 'backup'):
-                # Estimate total directories in source directory
-                try:
-                    total = sum(1 for _ in args[0].source.walk())
+                    total = sum(1 for _ in (args[0].source.walk() if target == 'source' else args[0].backup.walk()))
                 except:
                     pass
             
