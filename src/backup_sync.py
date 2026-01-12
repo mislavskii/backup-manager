@@ -4,6 +4,8 @@ import stat
 import logging
 from pathlib import Path
 import time
+from tqdm import tqdm
+
 from utils import remove_directory, remove_file, progress_tracker
 
 
@@ -16,12 +18,13 @@ class Sync:
         self.source = Path(source)
         self.backup = Path(backup)
 
-    @progress_tracker(desc="Clearing deleted files", unit="dirs")
+    # @progress_tracker(desc="Clearing deleted files", unit="dirs")
     def clear_deleted(self, dry=True, pbar=None):
         """
         Clearing the backup of items no longer found in the source
         """
-        for root, dirs, files in self.backup.walk():
+        # for root, dirs, files in self.backup.walk():
+        for root, dirs, files in tqdm(self.backup.walk()):
             if not root.exists():
                 if pbar:
                     pbar.update(1)
@@ -44,7 +47,7 @@ class Sync:
             time.sleep(0.01)  # Yield to prevent I/O starvation
 
 
-    def safe_copy(self, dry=True):
+    def safe_copy(self, dry=True): # TODO: test, implement error handling and progress bar
         """Copies all files recursively from source to backup with no metadata"""
         for root, dirs, files in self.source.walk():
             rel_path = root.relative_to(self.source)
