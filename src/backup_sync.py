@@ -6,7 +6,7 @@ from pathlib import Path
 import time
 from tqdm import tqdm
 
-from src.utils import remove_directory, remove_file, progress_tracker, make_directory, copy_file
+from utils import remove_directory, remove_file, progress_tracker, make_directory, copy_file
 
 
 logging.basicConfig(filename=f'logs/sync-{int(time.time())}.log', 
@@ -46,7 +46,6 @@ class Sync:
                 pbar.update(1)
             time.sleep(0.01)  # Yield to prevent I/O starvation
 
-
     @progress_tracker(desc="Copying files", unit="dirs")
     def safe_copy(self, dry=True, pbar=None):
         """Copies all files recursively from source to backup with no metadata"""
@@ -57,6 +56,7 @@ class Sync:
             if not dry:
                 make_directory(backup_equiv)
             for file in files:
+                logging.info(f"Copying file: {root / file}")
                 if not dry:
                     copy_file(root / file, backup_equiv / file)
             if pbar:
@@ -65,7 +65,7 @@ class Sync:
 
 
 if __name__ == "__main__":
-    source = '/media/mm/MSI M450/SSD_RESCUE/User'
-    backup = '/media/mm/MSI M450/Backup/User'
+    source = '/media/mm/Backup'
+    backup = '/media/mm/MSI M450/Backup'
     sync = Sync(source, backup)  
-    sync.clear_deleted(dry=True)
+    sync.safe_copy(dry=False)
