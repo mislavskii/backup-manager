@@ -57,6 +57,33 @@ def progress_tracker(desc="Processing", unit="items"):
     return decorator
 
 
+def source_progress_tracker(desc="Processing", unit="items"):
+    """
+    Decorator to add progress tracking to functions that process items from source
+    """
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            # Try to get total count from function's first argument if it's a Sync instance
+            total = None
+            if args and hasattr(args[0], 'source') and hasattr(args[0], 'backup'):
+                # Estimate total directories in source directory
+                try:
+                    total = sum(1 for _ in args[0].source.walk())
+                except:
+                    pass
+            
+            pbar = tqdm(total=total, desc=desc, unit=unit)
+            kwargs['pbar'] = pbar
+            try:
+                result = func(*args, **kwargs)
+            finally:
+                pbar.close()
+            return result
+        return wrapper
+    return decorator
+
+
 @retry_on_failure()
 def remove_directory(path):
     """Remove a directory with retry logic"""
