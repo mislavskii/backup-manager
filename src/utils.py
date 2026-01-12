@@ -67,3 +67,15 @@ def remove_directory(path):
 def remove_file(path):
     """Remove a file with retry logic"""
     os.remove(path)
+
+
+@retry_on_failure()
+def make_directory(path):
+    """Create a directory with retry logic"""
+    path.mkdir(parents=True, exist_ok=True)
+
+
+@retry_on_failure()
+def copy_file(src, dst):
+    """Copy a file with retry logic"""
+    shutil.copy(src, dst)

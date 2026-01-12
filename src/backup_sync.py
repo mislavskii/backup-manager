@@ -6,7 +6,7 @@ from pathlib import Path
 import time
 from tqdm import tqdm
 
-from utils import remove_directory, remove_file, progress_tracker
+from utils import remove_directory, remove_file, progress_tracker, make_directory, copy_file
 
 
 logging.basicConfig(filename=f'logs/sync-{int(time.time())}.log', 
@@ -54,11 +54,11 @@ class Sync:
             backup_equiv = self.backup / rel_path
             logging.info(f"Making dir: {root}")
             if not dry:
-                backup_equiv.mkdir(parents=True, exist_ok=True)
+                make_directory(backup_equiv)
             for file in files:
                 if not dry:
-                    shutil.copy(root / file, backup_equiv / file)
-            time.sleep(0.01)  # Yield to prevent I/O starvation    
+                    copy_file(root / file, backup_equiv / file)
+            time.sleep(0.01)  # Yield to prevent I/O starvation
 
 
 if __name__ == "__main__":
