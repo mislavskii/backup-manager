@@ -65,4 +65,4 @@ if __name__ == "__main__":
     source = '/media/mm/MSI M450/SSD_RESCUE/User'
     backup = '/media/mm/MSI M450/Backup/User'
     sync = Sync(source, backup)  
-    sync.clear_deleted()
+    sync.clear_deleted(dry=False)
