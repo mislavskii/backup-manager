@@ -18,13 +18,13 @@ class Sync:
         self.source = Path(source)
         self.backup = Path(backup)
 
-    # @progress_tracker(desc="Clearing deleted files", unit="dirs")
+    @progress_tracker(desc="Clearing deleted files", unit="dirs")
     def clear_deleted(self, dry=True, pbar=None):
         """
         Clearing the backup of items no longer found in the source
         """
-        # for root, dirs, files in self.backup.walk():
-        for root, dirs, files in tqdm(self.backup.walk()):
+        for root, dirs, files in self.backup.walk():
+        # for root, dirs, files in tqdm(self.backup.walk()):
             if not root.exists():
                 if pbar:
                     pbar.update(1)
@@ -58,36 +58,7 @@ class Sync:
             for file in files:
                 if not dry:
                     shutil.copy(root / file, backup_equiv / file)
-            time.sleep(0.01)  # Yield to prevent I/O starvation
-
-    
-
-
-# All below will be refactored later
-
-
-def sync_level(depth=0, max_depth=0, dry_run=True):
-    """Batch sync by directory depth to avoid NTFS recursion freeze"""
-    count = 0
-    for root, dirs, files in os.walk(source, topdown=True):
-        root = Path(root)
-        rel_path = root.relative_to(source)
-        depth_now = len(rel_path.parts)
-        
-        if depth_now > max_depth and max_depth > 0:
-            dirs[:] = []  # Prune deeper recursion
-            continue
-            
-        dest_root = backup / rel_path
-        for file in files:
-            safe_copy(root / file, dest_root / file)
-            count += 1
-            
-        if count % 100 == 0:
-            print(f"Processed {count} files at depth {depth_now}")
-            
-        time.sleep(0.01)  # Yield to prevent I/O starvation
-    
+            time.sleep(0.01)  # Yield to prevent I/O starvation    
 
 
 if __name__ == "__main__":
