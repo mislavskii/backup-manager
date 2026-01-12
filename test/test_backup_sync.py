@@ -266,3 +266,111 @@ class TestSyncClearDeleted:
         
         # Verify that warning logging occurred for the first failure
         assert mock_info.called
+
+class TestSyncSafeCopy:
+    """Test cases for the safe_copy method in Sync class"""
+
+    @pytest.fixture
+    def temp_directories(self, tmp_path):
+        """Create temporary source and backup directories for testing"""
+        source_dir = tmp_path / "source"
+        backup_dir = tmp_path / "backup"
+        source_dir.mkdir()
+        backup_dir.mkdir()
+        
+        # Create test structure in source
+        (source_dir / "dir1").mkdir()
+        (source_dir / "dir1" / "file1.txt").write_text("content1")
+        (source_dir / "dir2").mkdir()
+        (source_dir / "file2.txt").write_text("content2")
+        
+        return source_dir, backup_dir
+
+    def test_safe_copy_dry_run(self, temp_directories):
+        """Test that dry run doesn't actually copy files"""
+        source_dir, backup_dir = temp_directories
+        sync = Sync(str(source_dir), str(backup_dir))
+        
+        # Run safe_copy in dry run mode (default)
+        sync.safe_copy(dry=True)
+        
+        # No files should be copied in dry run mode
+        assert not (backup_dir / "dir1").exists()
+        assert not (backup_dir / "file2.txt").exists()
+
+    def test_safe_copy_actual_copy(self, temp_directories):
+        """Test that files are actually copied when dry=False"""
+        source_dir, backup_dir = temp_directories
+        sync = Sync(str(source_dir), str(backup_dir))
+        
+        # Run safe_copy in actual copy mode
+        sync.safe_copy(dry=False)
+        
+        # Files and directories should be copied
+        assert (backup_dir / "dir1").exists()
+        assert (backup_dir / "dir1" / "file1.txt").exists()
+        assert (backup_dir / "dir2").exists()
+        assert (backup_dir / "file2.txt").exists()
+        
+        # File contents should match
+        assert (backup_dir / "dir1" / "file1.txt").read_text() == "content1"
+        assert (backup_dir / "file2.txt").read_text() == "content2"
+
+    @patch('src.backup_sync.logging.info')
+    def test_safe_copy_logging(self, mock_logging, temp_directories):
+        """Test that proper logging messages are generated"""
+        source_dir, backup_dir = temp_directories
+        sync = Sync(str(source_dir), str(backup_dir))
+        
+        sync.safe_copy(dry=False)
+        
+        # Check that logging was called for directory creation
+        log_calls = [call[0][0] for call in mock_logging.call_args_list]
+        assert any("Making dir:" in msg for msg in log_calls)
+
+    def test_safe_copy_empty_source(self, tmp_path):
+        """Test behavior with empty source directory"""
+        source_dir = tmp_path / "source"
+        backup_dir = tmp_path / "backup"
+        source_dir.mkdir()
+        backup_dir.mkdir()
+        
+        sync = Sync(str(source_dir), str(backup_dir))
+        sync.safe_copy(dry=False)
+        
+        # Backup should still be empty
+        assert list(backup_dir.iterdir()) == []
+
+    def test_safe_copy_existing_backup_structure(self, temp_directories):
+        """Test behavior when backup already has some structure"""
+        source_dir, backup_dir = temp_directories
+        
+        # Create existing structure in backup
+        (backup_dir / "existing_dir").mkdir()
+        (backup_dir / "existing_file.txt").write_text("existing")
+        
+        sync = Sync(str(source_dir), str(backup_dir))
+        sync.safe_copy(dry=False)
+        
+        # Existing structure should remain
+        assert (backup_dir / "existing_dir").exists()
+        assert (backup_dir / "existing_file.txt").exists()
+        assert (backup_dir / "existing_file.txt").read_text() == "existing"
+        
+        # New structure should be added
+        assert (backup_dir / "dir1").exists()
+        assert (backup_dir / "dir1" / "file1.txt").exists()
+        assert (backup_dir / "file2.txt").exists()
+
+    @patch('src.backup_sync.shutil.copy')
+    def test_safe_copy_error_handling(self, mock_copy, temp_directories):
+        """Test that safe_copy handles errors during file copying"""
+        source_dir, backup_dir = temp_directories
+        sync = Sync(str(source_dir), str(backup_dir))
+        
+        # Make shutil.copy raise an exception
+        mock_copy.side_effect = OSError("Permission denied")
+        
+        # The method should raise the exception
+        with pytest.raises(OSError):
+            sync.safe_copy(dry=False)
